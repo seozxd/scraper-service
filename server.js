@@ -21,7 +21,7 @@ const requestLog = {};
 function rateLimit(req, res, next) {
     const ip = req.ip || req.connection.remoteAddress;
     const now = Date.now();
-    const windowMs = 60 * 1000; // 1 dakika
+    const windowMs = 60 * 1000;
     const maxRequests = 30;
 
     if (!requestLog[ip]) requestLog[ip] = [];
@@ -42,7 +42,6 @@ app.get('/resolve', authCheck, rateLimit, async (req, res) => {
         return res.status(400).json({ error: 'url parametresi gerekli' });
     }
 
-    // URL validasyonu
     try {
         new URL(url);
     } catch {
@@ -52,7 +51,7 @@ app.get('/resolve', authCheck, rateLimit, async (req, res) => {
     let browser = null;
     try {
         browser = await puppeteer.launch({
-            headless: 'new',
+            headless: true,
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -60,22 +59,28 @@ app.get('/resolve', authCheck, rateLimit, async (req, res) => {
                 '--disable-gpu',
                 '--single-process',
                 '--no-zygote',
+                '--disable-extensions',
+                '--disable-background-networking',
+                '--disable-default-apps',
+                '--disable-sync',
+                '--disable-translate',
+                '--mute-audio',
+                '--hide-scrollbars',
             ],
+            protocolTimeout: 60000,
         });
 
         const page = await browser.newPage();
 
-        // Gercekci tarayici ayarlari
         await page.setUserAgent(
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
         );
         await page.setExtraHTTPHeaders({
             'Accept-Language': 'en-US,en;q=0.9',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         });
-        await page.setViewport({ width: 1920, height: 1080 });
+        await page.setViewport({ width: 1366, height: 768 });
 
-        // Gereksiz kaynaklari engelle (hiz icin)
+        // Gereksiz kaynaklari engelle
         await page.setRequestInterception(true);
         page.on('request', (request) => {
             const type = request.resourceType();
@@ -86,7 +91,7 @@ app.get('/resolve', authCheck, rateLimit, async (req, res) => {
             }
         });
 
-        // Tum redirect'leri takip et
+        // Redirect zincirini takip et
         const redirectChain = [url];
         page.on('framenavigated', (frame) => {
             if (frame === page.mainFrame()) {
@@ -97,22 +102,17 @@ app.get('/resolve', authCheck, rateLimit, async (req, res) => {
             }
         });
 
-        // Sayfayi ac ve JS redirect'lerin tamamlanmasini bekle
-        const timeout = parseInt(req.query.timeout) || 30000;
-        const waitTime = parseInt(req.query.wait) || 5000;
+        const waitTime = parseInt(req.query.wait) || 8000;
 
         await page.goto(url, {
             waitUntil: 'networkidle2',
-            timeout: Math.min(timeout, 60000),
+            timeout: 45000,
         });
 
-        // Ekstra bekleme (JS redirect'ler icin)
+        // JS redirect'lerin tamamlanmasi icin bekle
         await new Promise(r => setTimeout(r, Math.min(waitTime, 15000)));
 
-        // Son URL'yi al
         const finalUrl = page.url();
-
-        // Sayfa title'ini al (debug icin)
         const title = await page.title().catch(() => '');
 
         await browser.close();
@@ -139,12 +139,11 @@ app.get('/resolve', authCheck, rateLimit, async (req, res) => {
     }
 });
 
-// Health check
 app.get('/', (req, res) => {
     res.json({
         status: 'ok',
         service: 'URL Redirect Scraper',
-        usage: 'GET /resolve?url=https://example.com',
+        usage: 'GET /resolve?url=https://example.com&token=YOUR_TOKEN',
     });
 });
 
