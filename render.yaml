@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: url-redirect-scraper
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: API_SECRET
+        generateValue: true
+      - key: PUPPETEER_CACHE_DIR
+        value: /opt/render/.cache/puppeteer

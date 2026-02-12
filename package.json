@@ -1,0 +1,16 @@
+{
+  "name": "url-redirect-scraper",
+  "version": "1.0.0",
+  "description": "Headless browser URL redirect tracker - WordPress plugin backend",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "puppeteer": "^21.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
