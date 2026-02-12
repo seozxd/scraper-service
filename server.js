@@ -48,35 +48,58 @@ app.get('/resolve', authCheck, rateLimit, async (req, res) => {
         return res.status(400).json({ error: 'Gecersiz URL' });
     }
 
+    // Proxy parametreleri
+    const proxyHost = req.query.proxy_host || '';
+    const proxyPort = req.query.proxy_port || '';
+    const proxyUser = req.query.proxy_user || '';
+    const proxyPass = req.query.proxy_pass || '';
+    const useProxy = proxyHost && proxyPort;
+
     let browser = null;
     try {
+        const launchArgs = [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--single-process',
+            '--no-zygote',
+            '--disable-extensions',
+            '--disable-background-networking',
+            '--disable-default-apps',
+            '--disable-sync',
+            '--disable-translate',
+            '--mute-audio',
+            '--hide-scrollbars',
+        ];
+
+        // Proxy varsa Chrome'a arg olarak ekle
+        if (useProxy) {
+            launchArgs.push(`--proxy-server=${proxyHost}:${proxyPort}`);
+            console.log(`Proxy kullaniliyor: ${proxyHost}:${proxyPort}`);
+        }
+
         browser = await puppeteer.launch({
             headless: true,
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu',
-                '--single-process',
-                '--no-zygote',
-                '--disable-extensions',
-                '--disable-background-networking',
-                '--disable-default-apps',
-                '--disable-sync',
-                '--disable-translate',
-                '--mute-audio',
-                '--hide-scrollbars',
-            ],
+            args: launchArgs,
             protocolTimeout: 60000,
         });
 
         const page = await browser.newPage();
 
+        // Proxy auth varsa ayarla
+        if (useProxy && proxyUser && proxyPass) {
+            await page.authenticate({
+                username: proxyUser,
+                password: proxyPass,
+            });
+        }
+
         await page.setUserAgent(
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
         );
         await page.setExtraHTTPHeaders({
-            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Language': 'tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7',
         });
         await page.setViewport({ width: 1366, height: 768 });
 
@@ -125,6 +148,7 @@ app.get('/resolve', authCheck, rateLimit, async (req, res) => {
             changed: finalUrl !== url,
             title: title,
             redirect_chain: [...new Set(redirectChain)],
+            proxy_used: useProxy ? `${proxyHost}:${proxyPort}` : 'none',
         });
 
     } catch (error) {
@@ -145,7 +169,7 @@ app.get('/', (req, res) => {
     res.json({
         status: 'ok',
         service: 'URL Redirect Scraper',
-        usage: 'GET /resolve?url=https://example.com&token=YOUR_TOKEN',
+        usage: 'GET /resolve?url=https://example.com&token=YOUR_TOKEN&proxy_host=IP&proxy_port=PORT&proxy_user=USER&proxy_pass=PASS',
     });
 });
 
