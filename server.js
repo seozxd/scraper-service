@@ -128,6 +128,8 @@ app.get('/resolve', authCheck, rateLimit, async (req, res) => {
         });
 
     } catch (error) {
+        console.error('HATA:', error.message);
+        console.error('STACK:', error.stack);
         if (browser) await browser.close().catch(() => {});
 
         res.status(500).json({
