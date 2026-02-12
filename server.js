@@ -74,15 +74,16 @@ app.get('/resolve', authCheck, rateLimit, async (req, res) => {
         ];
 
         // Proxy varsa Chrome'a arg olarak ekle
+        const proxyProto = req.query.proxy_proto || 'http';
         if (useProxy) {
-            launchArgs.push(`--proxy-server=${proxyHost}:${proxyPort}`);
-            console.log(`Proxy kullaniliyor: ${proxyHost}:${proxyPort}`);
+            launchArgs.push(`--proxy-server=${proxyProto}://${proxyHost}:${proxyPort}`);
+            console.log(`Proxy kullaniliyor: ${proxyProto}://${proxyHost}:${proxyPort}`);
         }
 
         browser = await puppeteer.launch({
             headless: true,
             args: launchArgs,
-            protocolTimeout: 60000,
+            protocolTimeout: useProxy ? 120000 : 60000,
         });
 
         const page = await browser.newPage();
@@ -129,7 +130,7 @@ app.get('/resolve', authCheck, rateLimit, async (req, res) => {
 
         await page.goto(url, {
             waitUntil: 'networkidle2',
-            timeout: 45000,
+            timeout: useProxy ? 90000 : 45000,
         });
 
         // JS redirect'lerin tamamlanmasi icin bekle
